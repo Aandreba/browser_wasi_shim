@@ -16,12 +16,15 @@ export class WASIProcExit extends Error {
 }
 
 export default class WASI {
+  private nextThreadId: Int32Array | null;
   args: Array<string> = [];
   env: Array<string> = [];
   fds: Array<Fd> = [];
   inst: { exports: { memory: WebAssembly.Memory } };
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   wasiImport: { [key: string]: (...args: Array<any>) => unknown };
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  wasiThreadImport: { [key: string]: (...args: Array<any>) => unknown };
 
   /// Start a WASI command
   start(instance: {
@@ -59,9 +62,17 @@ export default class WASI {
   ) {
     debug.enable(options.debug);
 
+    this.nextThreadId = null;
+    // @ts-ignore
+    if (SharedArrayBuffer in globalThis) {
+      const buf = new SharedArrayBuffer(4);
+      this.nextThreadId = new Int32Array(buf);
+    }
+
     this.args = args;
     this.env = env;
     this.fds = fds;
+
     const self = this;
     this.wasiImport = {
       args_sizes_get(argc: number, argv_buf_size: number): number {
